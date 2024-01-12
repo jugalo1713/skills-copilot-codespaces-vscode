@@ -1,50 +1,77 @@
-// create web server
-var express = require('express');
-var router = express.Router();
-// create database
-var mongoose = require('mongoose');
-// create model
-var Comment = require('../models/Comment.js');
+//create a web server
+//create a web server
+//create a web server
 
-// GET comments listing
-router.get('/', function(req, res, next) {
-  Comment.find(function (err, comments) {
-    if (err) return next(err);
-    res.json(comments);
-  });
+//import modules
+const express = require("express");
+const router = express.Router();
+const mongoose = require("mongoose");
+const passport = require("passport");
+
+//import models
+const Post = require("../../models/Post");
+const Profile = require("../../models/Profile");
+
+//import validation
+const validatePostInput = require("../../validation/post");
+
+// @route   GET api/posts/test
+// @desc    Tests post route
+// @access  Public
+router.get("/test", (req, res) =>
+  res.json({
+    msg: "Posts Works"
+  })
+);
+
+// @route   GET api/posts
+// @desc    GET posts
+// @access  Public
+router.get("/", (req, res) => {
+  Post.find()
+    .sort({ date: -1 }) //sort by date descending
+    .then(posts => res.json(posts))
+    .catch(err => res.status(404).json({ nopostsfound: "No posts found." }));
 });
 
-// POST /comments
-router.post('/', function(req, res, next) {
-  Comment.create(req.body, function (err, post) {
-    if (err) return next(err);
-    res.json(post);
-  });
+// @route   GET api/posts/:id
+// @desc    GET post by id
+// @access  Public
+router.get("/:id", (req, res) => {
+  Post.findById(req.params.id) //req.params.id is the id from the url
+    .then(post => res.json(post))
+    .catch(err =>
+      res.status(404).json({ nopostfound: "No post found with that id." })
+    );
 });
 
-// GET /comments/id
-router.get('/:id', function(req, res, next) {
-  Comment.findById(req.params.id, function (err, post) {
-    if (err) return next(err);
-    res.json(post);
-  });
-});
+// @route   POST api/posts
+// @desc    Create post
+// @access  Private
+router.post(
+  "/", //the route
+  passport.authenticate("jwt", { session: false }), //the passport middleware
+  (req, res) => {
+    const { errors, isValid } = validatePostInput(req.body);
 
-// PUT /comments/:id
-router.put('/:id', function(req, res, next) {
-  Comment.findByIdAndUpdate(req.params.id, req.body, function (err, post) {
-    if (err) return next(err);
-    res.json(post);
-  });
-});
+    //check validation
+    if (!isValid) {
+      //if any errors, send 400 with errors object
+      return res.status(400).json(errors);
+    }
 
-// DELETE /comments/:id
-router.delete('/:id', function(req, res, next) {
-  Comment.findByIdAndRemove(req.params.id, req.body, function (err, post) {
-    if (err) return next(err);
-    res.json(post);
-  });
-});
+    //create a new post object
+    const newPost = new Post({
+      text: req.body.text,
+      name: req.body.name,
+      avatar: req.body.avatar,
+      //user: req.user.id //this is the user id from the token
+      user: req.user.id
+    });
 
-// export router
-module.exports = router;
+    //save the post
+    newPost.save().then(post => res.json(post));
+  }
+);
+
+// @route   DELETE api/posts/:
